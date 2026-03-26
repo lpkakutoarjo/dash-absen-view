@@ -25,7 +25,6 @@ $(document).ready(function() {
   $('#selectGrafikPegawai').on('change', function() { updateChartPegawai(); });
   
   loadDataServer();
-  // setInterval(function() { loadDataServer(true); }, 60000);
 });
 
 function setDatabaseStatus(status) {
