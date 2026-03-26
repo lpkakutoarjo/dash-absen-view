@@ -133,7 +133,11 @@ function applyFilterBulan() {
       });
       
       let jmlTidakHadir = jmlCuti + jmlDL + jmlTK;
-      let hariEfektif = jmlHadir + jmlTidakHadir;
+      
+      // Mengambil data Hari Efektif langsung dari database Sheet (bukan kalkulasi)
+      // Pastikan key JSON dari Google Apps Script bernama 'hariEfektif' atau sesuaikan dengan nama header Anda
+      let hariEfektif = pegawai.hariEfektif || pegawai["HARI EFEKTIF"] || pegawai.HariEfektif || 0; 
+      
       let finalKeterangan = notesBulanIni.length > 0 ? notesBulanIni.join('<br>') : '<span class="text-muted fst-italic">-</span>';
 
       totalKeseluruhanHadir += jmlHadir;
