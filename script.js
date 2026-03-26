@@ -285,10 +285,19 @@ function updateChartPegawai() {
   let namaPegawai = document.getElementById('selectGrafikPegawai').value;
   if(!namaPegawai) return;
 
+  // 1. Ambil target Hari Efektif pegawai dari database (bukan hasil hitung log)
+  let pegawai = rawDataPegawai.find(p => p.nama === namaPegawai);
+  let targetHariEfektif = 0;
+  if (pegawai) {
+    targetHariEfektif = parseInt(pegawai.hariEfektif || pegawai["HARI EFEKTIF"] || pegawai.HariEfektif) || 0;
+  }
+
   let bulanTerpilih = document.getElementById('selectBulanGrafik').value;
-  let currentYear = new Date().getFullYear(); let formatBulan = `${currentYear}-${bulanTerpilih}`;
+  let currentYear = new Date().getFullYear(); 
+  let formatBulan = `${currentYear}-${bulanTerpilih}`;
   let stats = { "Hadir": 0, "Cuti Tahunan": 0, "Cuti Melahirkan": 0, "Cuti Sakit": 0, "Cuti Besar": 0, "Cuti Diluar Tanggungan Negara": 0, "Cuti Alasan Penting": 0, "Dinas Luar": 0, "Tanpa Keterangan": 0 };
 
+  // 2. Hitung jumlah log kehadiran yang sudah masuk
   globalLogs.forEach(log => {
     if(log.nama === namaPegawai && (bulanTerpilih === "ALL" || log.bulan === formatBulan)) {
       let st = log.status.toUpperCase();
@@ -304,43 +313,85 @@ function updateChartPegawai() {
     }
   });
 
-  let labels = [], dataCounts = [], bgColors = [], totalEfektif = 0;
+  let labels = [], dataCounts = [], bgColors = [], totalTercatat = 0;
   for (let key in stats) {
-    if (stats[key] > 0) { labels.push(key); dataCounts.push(stats[key]); bgColors.push(colorMap[key]); totalEfektif += stats[key]; }
+    if (stats[key] > 0) { 
+      labels.push(key); 
+      dataCounts.push(stats[key]); 
+      bgColors.push(colorMap[key]); 
+      totalTercatat += stats[key]; 
+    }
+  }
+
+  // 3. LOGIKA PERSENTASE BERDASARKAN HARI EFEKTIF
+  // Pembagi 100% didasarkan pada Hari Efektif dari Sheet. 
+  let pembagi = targetHariEfektif > 0 ? targetHariEfektif : totalTercatat;
+
+  // Tambahkan irisan "Sisa Hari" ke dalam Pie Chart jika log terekam masih kurang dari Hari Efektif
+  // Ini memastikan secara visual potongan persentase "Hadir" akurat di dalam lingkaran
+  if (targetHariEfektif > totalTercatat) {
+    labels.push("Libur/Cuti/DL/TK");
+    dataCounts.push(targetHariEfektif - totalTercatat);
+    bgColors.push("#e2e8f0"); // Warna abu-abu netral
   }
 
   const ctx = document.getElementById('chartPerPegawai').getContext('2d');
   if(chartPersonal) chartPersonal.destroy();
 
   chartPersonal = new Chart(ctx, {
-    type: 'doughnut',
+    type: 'pie',
     data: {
       labels: labels.length ? labels : ['Belum Ada Data'],
-      datasets: [{ data: dataCounts.length ? dataCounts : [1], backgroundColor: bgColors.length ? bgColors : ['#f8f9fa'], borderWidth: 0, hoverOffset: 4 }]
+      datasets: [{ 
+        data: dataCounts.length ? dataCounts : [1], 
+        backgroundColor: bgColors.length ? bgColors : ['#f8f9fa'], 
+        borderWidth: 1, 
+        hoverOffset: 4 
+      }]
     },
     options: {
-      responsive: true, maintainAspectRatio: false, cutout: '70%',
+      responsive: true, 
+      maintainAspectRatio: false, 
       plugins: {
-        legend: { position: 'right', labels: { usePointStyle: true, padding: 15, font: { family: "'Plus Jakarta Sans', sans-serif", size: 11 } } },
-        datalabels: { display: false },
-        tooltip: { backgroundColor: 'rgba(255, 255, 255, 0.9)', titleColor: '#2c3e50', bodyColor: '#2c3e50', borderColor: '#e9ecef', borderWidth: 1, callbacks: { label: (c) => ` ${c.label}: ${c.raw} Hari` } }
-      }
-    },
-    plugins: [{
-      id: 'textCenter',
-      beforeDraw: function(chart) {
-        if(totalEfektif > 0) {
-          var width = chart.width, height = chart.height, ctx = chart.ctx; ctx.restore();
-          let fontSize = (height / 110).toFixed(2); ctx.font = "bold " + fontSize + "em 'Plus Jakarta Sans'";
-          ctx.textBaseline = "middle"; ctx.fillStyle = "#1e293b";
-          let text = totalEfektif, textX = Math.round((width - ctx.measureText(text).width) / 2) - 60, textY = height / 2 - 10;
-          ctx.fillText(text, textX, textY);
-          ctx.font = "600 " + (fontSize*0.3) + "em 'Plus Jakarta Sans'"; ctx.fillStyle = "#64748b";
-          let subText = "Hari Efektif";
-          ctx.fillText(subText, textX + (ctx.measureText(text).width/2) - (ctx.measureText(subText).width/2), textY + 25);
-          ctx.save();
+        legend: { 
+          position: 'right', 
+          labels: { 
+            usePointStyle: true, 
+            padding: 15, 
+            font: { family: "'Plus Jakarta Sans', sans-serif", size: 11 } 
+          } 
+        },
+        datalabels: { 
+          color: (context) => {
+             let label = context.chart.data.labels[context.dataIndex];
+             // Buat teks gelap agar terbaca pada irisan abu-abu (Sisa Hari)
+             return label === 'Belum Ada Data' || label === 'Sisa Hari (Belum Absen)' ? '#475569' : '#ffffff';
+          },
+          font: { weight: 'bold', size: 12 },
+          formatter: (value, context) => {
+            let label = context.chart.data.labels[context.dataIndex];
+            if (label === 'Belum Ada Data' || pembagi === 0) return '';
+            
+            // Kalkulasi matematis: (Nilai Kehadiran / Target Hari Efektif) * 100
+            let percentage = ((value / pembagi) * 100).toFixed(1);
+            return percentage > 0 ? percentage + '%' : ''; 
+          }
+        },
+        tooltip: { 
+          backgroundColor: 'rgba(255, 255, 255, 0.9)', 
+          titleColor: '#2c3e50', 
+          bodyColor: '#2c3e50', 
+          borderColor: '#e9ecef', 
+          borderWidth: 1, 
+          callbacks: { 
+            label: (c) => {
+              if (pembagi === 0) return ' Belum Ada Data';
+              let percentage = ((c.raw / pembagi) * 100).toFixed(1);
+              return ` ${c.label}: ${c.raw} Hari (${percentage}%)`;
+            }
+          } 
         }
       }
-    }]
+    }
   });
 }
