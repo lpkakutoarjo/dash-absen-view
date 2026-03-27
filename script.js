@@ -1,9 +1,10 @@
 // --- GANTI URL INI DENGAN URL DEPLOYMENT WEB APP GAS ANDA ---
-const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbxk33JCXSj-PfFKaM6Y8_SjQcHlpCrs6EenVbjdGtTyQY93l4qZ6L01zUH-wFqJBQza/exec'; 
+const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbxH5x1BXWMqkJVjTpYMM2tL60ysBGDIo2I4vHSAME6my9vbHVlQ9kRNnS_En8pwBZY/exec'; 
 
 let dataTableRekapan;
 let globalLogs = [];
 let rawDataPegawai = [];
+let globalHariEfektifBulanan = {};
 let chartAll, chartPersonal;
 
 let isRekapanLoaded = false;
@@ -19,11 +20,10 @@ $(document).ready(function() {
     placeholder: "Ketik nama pegawai untuk mencari...",
     allowClear: true,
     width: '100%',
-    theme: 'bootstrap-5' // Memastikan tema sesuai
+    theme: 'bootstrap-5'
   });
 
   $('#selectGrafikPegawai').on('change', function() { updateChartPegawai(); });
-  
   loadDataServer();
 });
 
@@ -69,6 +69,8 @@ async function loadDataServer(isSilent = false) {
     if (result.status === 'success') {
       rawDataPegawai = result.data.rekapan;
       globalLogs = result.data.logs;
+      globalHariEfektifBulanan = result.data.hariEfektifBulanan || {};
+      
       if (!isSilent) populateDropdownPegawai(rawDataPegawai);
       
       isRekapanLoaded = true;
@@ -99,13 +101,11 @@ function applyFilterBulan() {
   let currentYear = new Date().getFullYear();
   let filteredData = [];
   
-  // Variabel untuk Quick Stats
   let totalKeseluruhanHadir = 0;
   let totalKeseluruhanAbsen = 0;
 
   if (bulanTerpilih === "ALL") {
     filteredData = rawDataPegawai;
-    // Hitung total stat dari raw data rekapan tahunan
     rawDataPegawai.forEach(p => {
       totalKeseluruhanHadir += parseInt(p.jumlahKehadiran) || 0;
       totalKeseluruhanAbsen += parseInt(p.jmlTidakHadir) || 0;
@@ -124,7 +124,7 @@ function applyFilterBulan() {
         if (st === "HADIR") jmlHadir++;
         else if (st === "DINAS LUAR" || st === "DL") jmlDL++;
         else if (st === "TANPA KETERANGAN" || st === "TK") jmlTK++;
-        else if (st.includes("CUTI")) jmlCuti++; // <--- PERBAIKAN DI SINI
+        else if (st.includes("CUTI")) jmlCuti++; 
         
         if (log.keterangan && log.keterangan.trim() !== "") {
           let hariTgl = log.tanggal.split('-')[2]; 
@@ -134,9 +134,18 @@ function applyFilterBulan() {
       
       let jmlTidakHadir = jmlCuti + jmlDL + jmlTK;
       
-      // Mengambil data Hari Efektif langsung dari database Sheet (bukan kalkulasi)
-      // Pastikan key JSON dari Google Apps Script bernama 'hariEfektif' atau sesuaikan dengan nama header Anda
-      let hariEfektif = pegawai.hariEfektif || pegawai["HARI EFEKTIF"] || pegawai.HariEfektif || 0; 
+      // --- PERBAIKAN PENGAMBILAN HARI EFEKTIF PER PEGAWAI ---
+      let hariEfektif = 0;
+      if (bulanTerpilih === "ALL") {
+        hariEfektif = pegawai.hariEfektif || pegawai["HARI EFEKTIF"] || pegawai.HariEfektif || 0; 
+      } else {
+        // Deteksi secara spesifik berdasarkan nama pegawai di bulan tersebut
+        if (globalHariEfektifBulanan[formatBulan] && globalHariEfektifBulanan[formatBulan][pegawai.nama]) {
+          hariEfektif = globalHariEfektifBulanan[formatBulan][pegawai.nama];
+        } else {
+          hariEfektif = 0;
+        }
+      }
       
       let finalKeterangan = notesBulanIni.length > 0 ? notesBulanIni.join('<br>') : '<span class="text-muted fst-italic">-</span>';
 
@@ -151,17 +160,13 @@ function applyFilterBulan() {
     });
   }
 
-  // --- UPDATE QUICK STATS CARDS ---
-  // Animasi counter sederhana
   animateValue("statTotalPegawai", 0, filteredData.length, 500);
   animateValue("statTotalHadir", 0, totalKeseluruhanHadir, 500, ' <span class="fs-6 text-muted fw-normal">Hari</span>');
   animateValue("statTotalAbsen", 0, totalKeseluruhanAbsen, 500, ' <span class="fs-6 text-muted fw-normal">Hari</span>');
-  // --------------------------------
 
   populateTabelRekapan(filteredData);
 }
 
-// Fungsi helper animasi angka
 function animateValue(id, start, end, duration, suffix = '') {
   const obj = document.getElementById(id);
   if(!obj) return;
@@ -193,9 +198,7 @@ function populateTabelRekapan(data) {
       <td class="text-muted">${row.tk}</td>
       <td class="fw-bold text-danger bg-danger bg-opacity-10">${row.jmlTidakHadir}</td>
       <td class="fw-bold text-success bg-success bg-opacity-10">${row.jumlahKehadiran}</td>
-      <td class="text-start small lh-sm">
-         ${row.keterangan}
-      </td>
+      <td class="text-start small lh-sm">${row.keterangan}</td>
     </tr>`;
   });
   document.getElementById('tabelBody').innerHTML = tbody;
@@ -212,12 +215,7 @@ function populateTabelRekapan(data) {
 
 function populateDropdownPegawai(data) {
   let options = '<option value="">Pilih/Ketik Pegawai...</option>';
-  
-  // Menggunakan data asal tanpa .sort() agar mengikut urutan pangkalan data
-  data.forEach(row => { 
-    options += `<option value="${row.nama}">${row.nama}</option>`; 
-  });
-  
+  data.forEach(row => { options += `<option value="${row.nama}">${row.nama}</option>`; });
   $('#selectGrafikPegawai').html(options).trigger('change');
   $('#nama').html(options).trigger('change');
 }
@@ -237,7 +235,7 @@ function renderChartBulanKeseluruhan() {
   globalLogs.forEach(log => {
     let isMatch = (bulanTerpilih === "ALL" || log.bulan === formatBulan);
     if(isMatch && log.status !== "LIBUR") {
-      if(!mapData[log.bulan]) { mapData[log.bulan] = {"Hadir": 0, "Cuti Tahunan": 0, "Cuti Melahirkan": 0, "Cuti Sakit": 0, "Cuti Besar": 0, "Cuti Diluar Tanggungan Negara": 0, "Cuti Alasan Penting": 0, "Dinas Luar": 0, "Tanpa Keterangan": 0}; }
+      if(!mapData[log.bulan]) { mapData[log.bulan] = {"Hadir": 0, "Cuti Tahunan": 0, "Cuti Melahirkan": 0, "Cuti Sakit": 0, "Cuti Besar": 0, "Cuti Diluar Tanggungan Negara": 0, "Cuti Alasan Penting": 0, "Cuti Bersama": 0, "Dinas Luar": 0, "Tanpa Keterangan": 0}; }
       let st = log.status.toUpperCase();
       if(st === "HADIR") mapData[log.bulan]["Hadir"]++;
       else if(st === "CUTI TAHUNAN") mapData[log.bulan]["Cuti Tahunan"]++;
@@ -286,18 +284,23 @@ function updateChartPegawai() {
   let namaPegawai = document.getElementById('selectGrafikPegawai').value;
   if(!namaPegawai) return;
 
-  // 1. Ambil target Hari Efektif pegawai dari database (bukan hasil hitung log)
-  let pegawai = rawDataPegawai.find(p => p.nama === namaPegawai);
-  let targetHariEfektif = 0;
-  if (pegawai) {
-    targetHariEfektif = parseInt(pegawai.hariEfektif || pegawai["HARI EFEKTIF"] || pegawai.HariEfektif) || 0;
-  }
-
   let bulanTerpilih = document.getElementById('selectBulanGrafik').value;
   let currentYear = new Date().getFullYear(); 
   let formatBulan = `${currentYear}-${bulanTerpilih}`;
+
+  // --- PERBAIKAN PENGAMBILAN TARGET GRAFIK ---
+  let targetHariEfektif = 0;
+  if (bulanTerpilih === "ALL") {
+      let pegawai = rawDataPegawai.find(p => p.nama === namaPegawai);
+      if (pegawai) { targetHariEfektif = parseInt(pegawai.hariEfektif || pegawai["HARI EFEKTIF"] || pegawai.HariEfektif) || 0; }
+  } else {
+      if (globalHariEfektifBulanan[formatBulan] && globalHariEfektifBulanan[formatBulan][namaPegawai]) {
+        targetHariEfektif = globalHariEfektifBulanan[formatBulan][namaPegawai];
+      } else { targetHariEfektif = 0; }
+  }
+
   let stats = { "Hadir": 0, "Cuti Tahunan": 0, "Cuti Melahirkan": 0, "Cuti Sakit": 0, "Cuti Besar": 0, "Cuti Diluar Tanggungan Negara": 0, "Cuti Alasan Penting": 0, "Cuti Bersama": 0, "Dinas Luar": 0, "Tanpa Keterangan": 0 };
-  // 2. Hitung jumlah log kehadiran yang sudah masuk
+
   globalLogs.forEach(log => {
     if(log.nama === namaPegawai && (bulanTerpilih === "ALL" || log.bulan === formatBulan)) {
       let st = log.status.toUpperCase();
@@ -317,23 +320,16 @@ function updateChartPegawai() {
   let labels = [], dataCounts = [], bgColors = [], totalTercatat = 0;
   for (let key in stats) {
     if (stats[key] > 0) { 
-      labels.push(key); 
-      dataCounts.push(stats[key]); 
-      bgColors.push(colorMap[key]); 
-      totalTercatat += stats[key]; 
+      labels.push(key); dataCounts.push(stats[key]); bgColors.push(colorMap[key]); totalTercatat += stats[key]; 
     }
   }
 
-  // 3. LOGIKA PERSENTASE BERDASARKAN HARI EFEKTIF
-  // Pembagi 100% didasarkan pada Hari Efektif dari Sheet. 
   let pembagi = targetHariEfektif > 0 ? targetHariEfektif : totalTercatat;
 
-  // Tambahkan irisan "Sisa Hari" ke dalam Pie Chart jika log terekam masih kurang dari Hari Efektif
-  // Ini memastikan secara visual potongan persentase "Hadir" akurat di dalam lingkaran
   if (targetHariEfektif > totalTercatat) {
     labels.push("Libur/Cuti/DL/TK");
     dataCounts.push(targetHariEfektif - totalTercatat);
-    bgColors.push("#e2e8f0"); // Warna abu-abu netral
+    bgColors.push("#e2e8f0"); 
   }
 
   const ctx = document.getElementById('chartPerPegawai').getContext('2d');
@@ -343,47 +339,27 @@ function updateChartPegawai() {
     type: 'pie',
     data: {
       labels: labels.length ? labels : ['Belum Ada Data'],
-      datasets: [{ 
-        data: dataCounts.length ? dataCounts : [1], 
-        backgroundColor: bgColors.length ? bgColors : ['#f8f9fa'], 
-        borderWidth: 1, 
-        hoverOffset: 4 
-      }]
+      datasets: [{ data: dataCounts.length ? dataCounts : [1], backgroundColor: bgColors.length ? bgColors : ['#f8f9fa'], borderWidth: 1, hoverOffset: 4 }]
     },
     options: {
-      responsive: true, 
-      maintainAspectRatio: false, 
+      responsive: true, maintainAspectRatio: false, 
       plugins: {
-        legend: { 
-          position: 'right', 
-          labels: { 
-            usePointStyle: true, 
-            padding: 15, 
-            font: { family: "'Plus Jakarta Sans', sans-serif", size: 11 } 
-          } 
-        },
+        legend: { position: 'right', labels: { usePointStyle: true, padding: 15, font: { family: "'Plus Jakarta Sans', sans-serif", size: 11 } } },
         datalabels: { 
           color: (context) => {
              let label = context.chart.data.labels[context.dataIndex];
-             // Buat teks gelap agar terbaca pada irisan abu-abu (Sisa Hari)
-             return label === 'Belum Ada Data' || label === 'Sisa Hari (Belum Absen)' ? '#475569' : '#ffffff';
+             return label === 'Belum Ada Data' || label === 'Sisa Hari (Belum Absen)' || label === 'Libur/Cuti/DL/TK' ? '#475569' : '#ffffff';
           },
           font: { weight: 'bold', size: 12 },
           formatter: (value, context) => {
             let label = context.chart.data.labels[context.dataIndex];
             if (label === 'Belum Ada Data' || pembagi === 0) return '';
-            
-            // Kalkulasi matematis: (Nilai Kehadiran / Target Hari Efektif) * 100
             let percentage = ((value / pembagi) * 100).toFixed(1);
             return percentage > 0 ? percentage + '%' : ''; 
           }
         },
         tooltip: { 
-          backgroundColor: 'rgba(255, 255, 255, 0.9)', 
-          titleColor: '#2c3e50', 
-          bodyColor: '#2c3e50', 
-          borderColor: '#e9ecef', 
-          borderWidth: 1, 
+          backgroundColor: 'rgba(255, 255, 255, 0.9)', titleColor: '#2c3e50', bodyColor: '#2c3e50', borderColor: '#e9ecef', borderWidth: 1, 
           callbacks: { 
             label: (c) => {
               if (pembagi === 0) return ' Belum Ada Data';
