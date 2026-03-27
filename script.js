@@ -124,7 +124,7 @@ function applyFilterBulan() {
         if (st === "HADIR") jmlHadir++;
         else if (st === "DINAS LUAR" || st === "DL") jmlDL++;
         else if (st === "TANPA KETERANGAN" || st === "TK") jmlTK++;
-        else if (st !== "LIBUR") jmlCuti++; 
+        else if (st.includes("CUTI")) jmlCuti++; // <--- PERBAIKAN DI SINI
         
         if (log.keterangan && log.keterangan.trim() !== "") {
           let hariTgl = log.tanggal.split('-')[2]; 
@@ -225,9 +225,9 @@ function populateDropdownPegawai(data) {
 const colorMap = {
   "Hadir": "#198754", "Cuti Tahunan": "#0dcaf0", "Cuti Melahirkan": "#d63384",
   "Cuti Sakit": "#fd7e14", "Cuti Besar": "#6f42c1", "Cuti Diluar Tanggungan Negara": "#6c757d",
-  "Cuti Alasan Penting": "#ffc107", "Dinas Luar": "#0d6efd", "Tanpa Keterangan": "#dc3545"
+  "Cuti Alasan Penting": "#ffc107", "Cuti Bersama": "#20c997", "Dinas Luar": "#0d6efd", "Tanpa Keterangan": "#dc3545"
 };
-const statusKeys = ["Hadir", "Cuti Tahunan", "Cuti Melahirkan", "Cuti Sakit", "Cuti Besar", "Cuti Diluar Tanggungan Negara", "Cuti Alasan Penting", "Dinas Luar", "Tanpa Keterangan"];
+const statusKeys = ["Hadir", "Cuti Tahunan", "Cuti Melahirkan", "Cuti Sakit", "Cuti Besar", "Cuti Diluar Tanggungan Negara", "Cuti Alasan Penting", "Cuti Bersama", "Dinas Luar", "Tanpa Keterangan"];
 
 function renderChartBulanKeseluruhan() {
   let bulanTerpilih = document.getElementById('selectBulanGlobal').value;
@@ -248,6 +248,7 @@ function renderChartBulanKeseluruhan() {
       else if(st === "CUTI ALASAN PENTING") mapData[log.bulan]["Cuti Alasan Penting"]++;
       else if(st === "DINAS LUAR" || st === "DL") mapData[log.bulan]["Dinas Luar"]++;
       else if(st === "TANPA KETERANGAN" || st === "TK") mapData[log.bulan]["Tanpa Keterangan"]++;
+      else if(st === "CUTI BERSAMA") mapData[log.bulan]["Cuti Bersama"]++;
     }
   });
 
@@ -295,8 +296,7 @@ function updateChartPegawai() {
   let bulanTerpilih = document.getElementById('selectBulanGrafik').value;
   let currentYear = new Date().getFullYear(); 
   let formatBulan = `${currentYear}-${bulanTerpilih}`;
-  let stats = { "Hadir": 0, "Cuti Tahunan": 0, "Cuti Melahirkan": 0, "Cuti Sakit": 0, "Cuti Besar": 0, "Cuti Diluar Tanggungan Negara": 0, "Cuti Alasan Penting": 0, "Dinas Luar": 0, "Tanpa Keterangan": 0 };
-
+  let stats = { "Hadir": 0, "Cuti Tahunan": 0, "Cuti Melahirkan": 0, "Cuti Sakit": 0, "Cuti Besar": 0, "Cuti Diluar Tanggungan Negara": 0, "Cuti Alasan Penting": 0, "Cuti Bersama": 0, "Dinas Luar": 0, "Tanpa Keterangan": 0 };
   // 2. Hitung jumlah log kehadiran yang sudah masuk
   globalLogs.forEach(log => {
     if(log.nama === namaPegawai && (bulanTerpilih === "ALL" || log.bulan === formatBulan)) {
@@ -310,6 +310,7 @@ function updateChartPegawai() {
       else if(st === "CUTI ALASAN PENTING") stats["Cuti Alasan Penting"]++;
       else if(st === "DINAS LUAR" || st === "DL") stats["Dinas Luar"]++;
       else if(st === "TANPA KETERANGAN" || st === "TK") stats["Tanpa Keterangan"]++;
+      else if(st === "CUTI BERSAMA") stats["Cuti Bersama"]++;
     }
   });
 
