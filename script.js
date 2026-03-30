@@ -131,7 +131,7 @@ function applyFilterBulan() {
     logsBulanIni.forEach(log => {
       let st = log.status.toUpperCase();
       
-      // Filter status kehadiran dan ketidakhadiran sesuai aturan baru
+      // Filter status kehadiran dan ketidakhadiran sesuai aturan
       if (st === "HADIR") {
         jmlHadir++;
       } else if (st === "DINAS LUAR" || st === "DL") {
@@ -139,17 +139,17 @@ function applyFilterBulan() {
       } else if (st === "TANPA KETERANGAN" || st === "TK") {
         jmlTK++;
       } else if (validCuti.includes(st)) {
-        jmlCuti++; // Hanya menghitung cuti yang ada di dalam array validCuti
+        jmlCuti++; 
       }
       
-      // Keterangan jurnal tetap direkam jika ada
+      // Keterangan jurnal direkam dan DITAMBAHKAN POIN (&bull;)
       if (log.keterangan && log.keterangan.trim() !== "") {
         let hariTgl = log.tanggal.split('-')[2]; 
-        notesBulanIni.push(`Tgl ${hariTgl}: <span class="text-dark">${log.keterangan}</span>`);
+        // Penambahan &bull; di awal string
+        notesBulanIni.push(`&bull; Tgl ${hariTgl}: <span class="text-dark">${log.keterangan}</span>`);
       }
     });
     
-    // Total Tidak Hadir hanya menjumlahkan (Cuti Valid + DL + TK)
     let jmlTidakHadir = jmlCuti + jmlDL + jmlTK;
     let hariEfektif = 0;
     
@@ -283,17 +283,24 @@ function renderChartBulanKeseluruhan() {
   if(chartAll) chartAll.destroy();
   if (typeof ChartDataLabels !== 'undefined') Chart.register(ChartDataLabels);
 
+  // MAPPING NAMA BULAN SINGKAT (Max 3 Karakter)
+  const shortMonths = {
+    "01": "Jan", "02": "Feb", "03": "Mar", "04": "Apr", 
+    "05": "Mei", "06": "Jun", "07": "Jul", "08": "Ags", 
+    "09": "Sep", "10": "Okt", "11": "Nov", "12": "Des"
+  };
+
   chartAll = new Chart(ctx, {
     type: 'bar',
     data: { 
-      labels: labels.length ? labels.map(l => l.substring(5)) : ['No Data'], 
+      // Menerapkan singkatan bulan ke label sumbu X
+      labels: labels.length ? labels.map(l => shortMonths[l.substring(5)] || l.substring(5)) : ['No Data'], 
       datasets: datasets.length ? datasets : [{ label: 'Empty', data: [0] }] 
     },
     options: {
       responsive: true, 
       maintainAspectRatio: false, 
       interaction: { mode: 'index', intersect: false },
-      // --- ANIMASI BAR CHART ---
       animation: {
         duration: 2000,
         easing: 'easeOutQuart',
