@@ -97,7 +97,16 @@ function checkAndRenderRekapan() {
 }
 
 function applyFilterBulan() {
-  let bulanTerpilih = document.getElementById('filterBulanRekapan').value;
+  let selectBulan = document.getElementById('filterBulanRekapan');
+  let bulanTerpilih = selectBulan.value;
+  let teksBulanTerpilih = selectBulan.options[selectBulan.selectedIndex].text;
+  
+  // UPDATE LABEL BULAN DINAMIS DI CARD
+  let labelBulanStat = document.getElementById('labelBulanStat');
+  if(labelBulanStat) {
+    labelBulanStat.innerHTML = `<i class="fas fa-calendar-alt me-1"></i> ${bulanTerpilih === "ALL" ? "Sepanjang Tahun" : teksBulanTerpilih}`;
+  }
+
   let currentYear = new Date().getFullYear();
   let filteredData = [];
   
@@ -134,12 +143,10 @@ function applyFilterBulan() {
       
       let jmlTidakHadir = jmlCuti + jmlDL + jmlTK;
       
-      // --- PERBAIKAN PENGAMBILAN HARI EFEKTIF PER PEGAWAI ---
       let hariEfektif = 0;
       if (bulanTerpilih === "ALL") {
         hariEfektif = pegawai.hariEfektif || pegawai["HARI EFEKTIF"] || pegawai.HariEfektif || 0; 
       } else {
-        // Deteksi secara spesifik berdasarkan nama pegawai di bulan tersebut
         if (globalHariEfektifBulanan[formatBulan] && globalHariEfektifBulanan[formatBulan][pegawai.nama]) {
           hariEfektif = globalHariEfektifBulanan[formatBulan][pegawai.nama];
         } else {
@@ -160,9 +167,10 @@ function applyFilterBulan() {
     });
   }
 
+  // Animasi angka tanpa menimpa elemen span/text HTML di dalamnya
   animateValue("statTotalPegawai", 0, filteredData.length, 500);
-  animateValue("statTotalHadir", 0, totalKeseluruhanHadir, 500, ' <span class="fs-6 text-muted fw-normal">Hari</span>');
-  animateValue("statTotalAbsen", 0, totalKeseluruhanAbsen, 500, ' <span class="fs-6 text-muted fw-normal">Hari</span>');
+  document.getElementById("statTotalHadir").innerHTML = `${totalKeseluruhanHadir} <span class="fs-6 text-muted fw-normal">Hari</span>`;
+  document.getElementById("statTotalAbsen").innerHTML = `${totalKeseluruhanAbsen} <span class="fs-6 text-muted fw-normal">Hari</span>`;
 
   populateTabelRekapan(filteredData);
 }
