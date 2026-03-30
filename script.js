@@ -233,9 +233,10 @@ function populateDropdownPegawai(data) {
 const colorMap = {
   "Hadir": "#198754", "Cuti Tahunan": "#0dcaf0", "Cuti Melahirkan": "#d63384",
   "Cuti Sakit": "#fd7e14", "Cuti Besar": "#6f42c1", "Cuti Diluar Tanggungan Negara": "#6c757d",
-  "Cuti Alasan Penting": "#ffc107", "Cuti Bersama": "#20c997", "Dinas Luar": "#0d6efd", "Tanpa Keterangan": "#dc3545"
+  "Cuti Alasan Penting": "#ffc107", "Cuti Bersama": "#20c997", "Dinas Luar": "#0d6efd", 
+  "Tanpa Keterangan": "#dc3545", "Libur": "#adb5bd"
 };
-const statusKeys = ["Hadir", "Cuti Tahunan", "Cuti Melahirkan", "Cuti Sakit", "Cuti Besar", "Cuti Diluar Tanggungan Negara", "Cuti Alasan Penting", "Cuti Bersama", "Dinas Luar", "Tanpa Keterangan"];
+const statusKeys = ["Hadir", "Cuti Tahunan", "Cuti Melahirkan", "Cuti Sakit", "Cuti Besar", "Cuti Diluar Tanggungan Negara", "Cuti Alasan Penting", "Cuti Bersama", "Dinas Luar", "Tanpa Keterangan", "Libur"];
 
 function renderChartBulanKeseluruhan() {
   let bulanTerpilih = document.getElementById('selectBulanGlobal').value;
@@ -325,22 +326,19 @@ function updateChartPegawai() {
   let currentYear = new Date().getFullYear(); 
   let formatBulan = `${currentYear}-${bulanTerpilih}`;
 
-  let targetHariEfektif = 0;
-  if (bulanTerpilih === "ALL") {
-      let pegawai = rawDataPegawai.find(p => p.nama === namaPegawai);
-      if (pegawai) { targetHariEfektif = parseInt(pegawai.hariEfektif || pegawai["HARI EFEKTIF"] || pegawai.HariEfektif) || 0; }
-  } else {
-      if (globalHariEfektifBulanan[formatBulan] && globalHariEfektifBulanan[formatBulan][namaPegawai]) {
-        targetHariEfektif = globalHariEfektifBulanan[formatBulan][namaPegawai];
-      } else { targetHariEfektif = 0; }
-  }
-
-  let stats = { "Hadir": 0, "Cuti Tahunan": 0, "Cuti Melahirkan": 0, "Cuti Sakit": 0, "Cuti Besar": 0, "Cuti Diluar Tanggungan Negara": 0, "Cuti Alasan Penting": 0, "Cuti Bersama": 0, "Dinas Luar": 0, "Tanpa Keterangan": 0 };
+  // Daftar rekapan status sesuai permintaan
+  let stats = { 
+    "Hadir": 0, "Libur": 0, "Cuti Tahunan": 0, "Cuti Melahirkan": 0, "Cuti Sakit": 0, 
+    "Cuti Besar": 0, "Cuti Diluar Tanggungan Negara": 0, "Cuti Alasan Penting": 0, 
+    "Cuti Bersama": 0, "Dinas Luar": 0, "Tanpa Keterangan": 0 
+  };
 
   globalLogs.forEach(log => {
     if(log.nama === namaPegawai && (bulanTerpilih === "ALL" || log.bulan === formatBulan)) {
       let st = log.status.toUpperCase();
+      
       if(st === "HADIR") stats["Hadir"]++;
+      else if(st === "LIBUR") stats["Libur"]++;
       else if(st === "CUTI TAHUNAN") stats["Cuti Tahunan"]++;
       else if(st === "CUTI MELAHIRKAN") stats["Cuti Melahirkan"]++;
       else if(st === "CUTI SAKIT") stats["Cuti Sakit"]++;
@@ -354,19 +352,18 @@ function updateChartPegawai() {
   });
 
   let labels = [], dataCounts = [], bgColors = [], totalTercatat = 0;
+  
   for (let key in stats) {
     if (stats[key] > 0) { 
-      labels.push(key); dataCounts.push(stats[key]); bgColors.push(colorMap[key]); totalTercatat += stats[key]; 
+      labels.push(key); 
+      dataCounts.push(stats[key]); 
+      bgColors.push(colorMap[key] || "#cccccc"); 
+      totalTercatat += stats[key]; 
     }
   }
 
-  let pembagi = targetHariEfektif > 0 ? targetHariEfektif : totalTercatat;
-
-  if (targetHariEfektif > totalTercatat) {
-    labels.push("Libur/Lainnya");
-    dataCounts.push(targetHariEfektif - totalTercatat);
-    bgColors.push("#e2e8f0"); 
-  }
+  // Pembagi persentase murni dari total log yang terekam (termasuk Libur dll)
+  let pembagi = totalTercatat;
 
   const ctx = document.getElementById('chartPerPegawai').getContext('2d');
   if(chartPersonal) chartPersonal.destroy();
@@ -378,21 +375,15 @@ function updateChartPegawai() {
       datasets: [{ data: dataCounts.length ? dataCounts : [1], backgroundColor: bgColors.length ? bgColors : ['#f8f9fa'], borderWidth: 1, hoverOffset: 15 }]
     },
     options: {
-      responsive: true, 
-      maintainAspectRatio: false, 
-      // --- ANIMASI PIE CHART ---
-      animation: {
-        animateRotate: true,
-        animateScale: true,
-        duration: 1500,
-        easing: 'easeOutBounce'
-      },
+      responsive: true, maintainAspectRatio: false, 
+      animation: { animateRotate: true, animateScale: true, duration: 1500, easing: 'easeOutBounce' },
       plugins: {
         legend: { position: 'right', labels: { usePointStyle: true, padding: 15, font: { family: "'Plus Jakarta Sans', sans-serif", size: 11 } } },
         datalabels: { 
           color: (context) => {
              let label = context.chart.data.labels[context.dataIndex];
-             return label === 'Belum Ada Data' || label === 'Libur/Lainnya' ? '#475569' : '#ffffff';
+             // Jika Libur atau Belum ada data, warna teks gelap agar terbaca di background terang
+             return label === 'Belum Ada Data' || label === 'Libur' ? '#475569' : '#ffffff';
           },
           font: { weight: 'bold', size: 12 },
           formatter: (value, context) => {
