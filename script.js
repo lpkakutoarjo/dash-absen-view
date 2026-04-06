@@ -1,5 +1,5 @@
 // --- GANTI URL INI DENGAN URL DEPLOYMENT WEB APP GAS ANDA ---
-const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbxH5x1BXWMqkJVjTpYMM2tL60ysBGDIo2I4vHSAME6my9vbHVlQ9kRNnS_En8pwBZY/exec'; 
+const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbw-eXwNmHVpqsC2g7onAi8BAUhGZhN37H4pUJDZifomnJ_V_aTLZCOyp4_vzJXmbWsM/exec'; 
 
 let dataTableRekapan;
 let globalLogs = [];
