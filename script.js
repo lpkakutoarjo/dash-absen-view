@@ -239,87 +239,137 @@ const colorMap = {
 const statusKeys = ["Hadir", "Cuti Tahunan", "Cuti Melahirkan", "Cuti Sakit", "Cuti Besar", "Cuti Diluar Tanggungan Negara", "Cuti Alasan Penting", "Cuti Bersama", "Dinas Luar", "Tanpa Keterangan", "Libur"];
 
 function renderChartBulanKeseluruhan() {
-  let bulanTerpilih = document.getElementById('selectBulanGlobal').value;
+  let selectBulan = document.getElementById('selectBulanGlobal');
+  if (!selectBulan) return;
+  let bulanTerpilih = selectBulan.value; 
   let currentYear = new Date().getFullYear(); 
-  let formatBulan = `${currentYear}-${bulanTerpilih}`;
+  let formatBulan = `${currentYear}-${bulanTerpilih}`; 
   let mapData = {};
 
+  // 1. Kumpulkan Data Log
   globalLogs.forEach(log => {
     let isMatch = (bulanTerpilih === "ALL" || log.bulan === formatBulan);
     if(isMatch && log.status !== "LIBUR") {
       if(!mapData[log.bulan]) { 
-        mapData[log.bulan] = {"Hadir": 0, "Cuti Tahunan": 0, "Cuti Melahirkan": 0, "Cuti Sakit": 0, "Cuti Besar": 0, "Cuti Diluar Tanggungan Negara": 0, "Cuti Alasan Penting": 0, "Cuti Bersama": 0, "Dinas Luar": 0, "Tanpa Keterangan": 0}; 
+        mapData[log.bulan] = {"Hadir": 0, "Cuti Tahunan": 0, "Cuti Melahirkan": 0, "Cuti Sakit": 0, "Cuti Besar": 0, "Cuti Diluar Tanggungan Negara": 0, "Cuti Alasan Penting": 0, "Dinas Luar": 0, "Tanpa Keterangan": 0}; 
       }
       let st = log.status.toUpperCase();
-      if(st === "HADIR") mapData[log.bulan]["Hadir"]++;
-      else if(st === "CUTI TAHUNAN") mapData[log.bulan]["Cuti Tahunan"]++;
-      else if(st === "CUTI MELAHIRKAN") mapData[log.bulan]["Cuti Melahirkan"]++;
-      else if(st === "CUTI SAKIT") mapData[log.bulan]["Cuti Sakit"]++;
-      else if(st === "CUTI BESAR") mapData[log.bulan]["Cuti Besar"]++;
-      else if(st === "CUTI DILUAR TANGGUNGAN NEGARA") mapData[log.bulan]["Cuti Diluar Tanggungan Negara"]++;
-      else if(st === "CUTI ALASAN PENTING") mapData[log.bulan]["Cuti Alasan Penting"]++;
-      else if(st === "DINAS LUAR" || st === "DL") mapData[log.bulan]["Dinas Luar"]++;
-      else if(st === "TANPA KETERANGAN" || st === "TK") mapData[log.bulan]["Tanpa Keterangan"]++;
-      else if(st === "CUTI BERSAMA") mapData[log.bulan]["Cuti Bersama"]++;
+      if(st === "HADIR") mapData[log.bulan]["Hadir"]++; 
+      else if(st === "DL" || st === "DINAS LUAR") mapData[log.bulan]["Dinas Luar"]++; 
+      else if(st === "TK" || st === "TANPA KETERANGAN") mapData[log.bulan]["Tanpa Keterangan"]++;
+      else {
+        let key = Object.keys(colorMap).find(k => k.toUpperCase() === st);
+        if(key) mapData[log.bulan][key]++;
+      }
     }
   });
 
-  let labels = Object.keys(mapData).sort(); 
-  let datasets = [];
-  statusKeys.forEach(key => {
-    let dataArray = labels.map(b => mapData[b][key]);
-    if (dataArray.some(val => val > 0)) {
-      datasets.push({ 
-        label: key, 
-        data: dataArray, 
-        backgroundColor: colorMap[key], 
-        borderRadius: 4, 
-        barPercentage: 0.8 
-      });
-    }
-  });
-
-  const ctx = document.getElementById('chartAllBulan').getContext('2d');
-  if(chartAll) chartAll.destroy();
-  if (typeof ChartDataLabels !== 'undefined') Chart.register(ChartDataLabels);
-
-  // MAPPING NAMA BULAN SINGKAT (Max 3 Karakter)
+  let labelsOriginal = Object.keys(mapData).sort(); 
+  
+  // 2. Format Nama Bulan (3 Huruf)
   const shortMonths = {
     "01": "Jan", "02": "Feb", "03": "Mar", "04": "Apr", 
     "05": "Mei", "06": "Jun", "07": "Jul", "08": "Ags", 
     "09": "Sep", "10": "Okt", "11": "Nov", "12": "Des"
   };
 
-  chartAll = new Chart(ctx, {
+  let labelsNamaBulan = labelsOriginal.map(l => {
+    let kodeBulan = l.includes('-') ? l.split('-')[1] : l;
+    return shortMonths[kodeBulan] || kodeBulan;
+  });
+
+  // 3. Setup Dataset
+  let datasets = [];
+  let statusKeys = ["Hadir", "Cuti Tahunan", "Cuti Melahirkan", "Cuti Sakit", "Cuti Besar", "Cuti Diluar Tanggungan Negara", "Cuti Alasan Penting", "Dinas Luar", "Tanpa Keterangan"];
+
+  statusKeys.forEach(key => {
+    let dataArray = labelsOriginal.map(b => mapData[b][key] || 0);
+    if (dataArray.some(val => val > 0)) {
+      datasets.push({ 
+        label: key, 
+        data: dataArray, 
+        backgroundColor: colorMap[key] || "#cccccc", 
+        borderRadius: 4, 
+        barPercentage: 0.7,  // Jarak renggang ala Cendol Dash
+        borderWidth: 0
+      });
+    }
+  });
+
+  // 4. Render Chart
+  const canvas = document.getElementById('chartAllBulan');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  
+  if(window.chartAll) window.chartAll.destroy(); 
+  if(typeof ChartDataLabels !== 'undefined') Chart.register(ChartDataLabels);
+
+  window.chartAll = new Chart(ctx, {
     type: 'bar',
     data: { 
-      // Menerapkan singkatan bulan ke label sumbu X
-      labels: labels.length ? labels.map(l => shortMonths[l.substring(5)] || l.substring(5)) : ['No Data'], 
-      datasets: datasets.length ? datasets : [{ label: 'Empty', data: [0] }] 
+      labels: labelsNamaBulan.length ? labelsNamaBulan : ['No Data'], 
+      datasets: datasets.length ? datasets : [{ label: 'Empty', data: [0], backgroundColor: '#e2e8f0' }] 
     },
     options: {
       responsive: true, 
       maintainAspectRatio: false, 
+      layout: { padding: { top: 30 } }, // Jarak atas diperlebar agar angka tidak terpotong
       interaction: { mode: 'index', intersect: false },
-      animation: {
-        duration: 2000,
-        easing: 'easeOutQuart',
-        delay: (context) => {
-          let delay = 0;
-          if (context.type === 'data' && context.mode === 'default') {
-            delay = context.dataIndex * 150 + context.datasetIndex * 100;
-          }
-          return delay;
-        }
+      plugins: { 
+        legend: { 
+          position: 'top', 
+          align: 'end',     // Legend di Atas Kanan
+          labels: { 
+            usePointStyle: true, 
+            boxWidth: 8, 
+            padding: 15, 
+            font: { family: "'Plus Jakarta Sans', sans-serif", size: 11, weight: '500' },
+            color: '#64748b'
+          } 
+        }, 
+        datalabels: { 
+          display: true, 
+          // Warna teks mengikuti warna bar (seperti gambar Cendol Dash)
+          color: function(context) {
+            return context.dataset.backgroundColor;
+          },
+          font: { weight: 'bold', size: 11, family: "'Plus Jakarta Sans', sans-serif" }, 
+          // Posisi angka diubah ke ATAS bar
+          anchor: 'end',
+          align: 'top',
+          offset: 4,
+          formatter: (value) => value > 0 ? value : ''
+        },
+        tooltip: { 
+          backgroundColor: '#1e293b', 
+          padding: 12,
+          titleFont: { family: "'Plus Jakarta Sans'", size: 13 },
+          bodyFont: { family: "'Plus Jakarta Sans'", size: 12 },
+          titleColor: '#ffffff', 
+          bodyColor: '#ffffff', 
+          borderColor: 'transparent', 
+          borderWidth: 0,
+          cornerRadius: 8
+        } 
       },
-      plugins: {
-        legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, padding: 15, font: { family: "'Plus Jakarta Sans', sans-serif", size: 11 } } },
-        datalabels: { color: '#fff', font: { weight: 'bold', size: 10 }, formatter: (value) => value > 0 ? value : '' },
-        tooltip: { backgroundColor: 'rgba(255, 255, 255, 0.9)', titleColor: '#2c3e50', bodyColor: '#2c3e50', borderColor: '#e9ecef', borderWidth: 1 }
-      },
-      scales: {
-        x: { stacked: true, grid: { display: false } },
-        y: { stacked: true, border: { display: false }, grid: { color: '#f8f9fa' }, ticks: { precision: 0 } }
+      scales: { 
+        x: { 
+          stacked: false, // DIBUAT TIDAK BERTUMPUK (Side-by-side)
+          grid: { display: false }, 
+          ticks: { font: { family: "'Plus Jakarta Sans'", weight: '600' }, color: '#475569' },
+          border: { display: false }
+        }, 
+        y: { 
+          stacked: false, // DIBUAT TIDAK BERTUMPUK (Side-by-side)
+          beginAtZero: true,
+          border: { display: false }, 
+          grid: { 
+            color: '#e2e8f0', 
+            drawBorder: false, 
+            borderDash: [5, 5] // Grid putus-putus
+          }, 
+          ticks: { display: false } // Angka Y dihilangkan
+        } 
       }
     }
   });
