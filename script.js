@@ -331,7 +331,10 @@ function updateChartPegawai() {
   let namaPegawai = document.getElementById('selectGrafikPegawai').value;
   if(!namaPegawai) return;
 
-  let bulanTerpilih = document.getElementById('selectBulanGrafik').value;
+  // Pastikan HANYA ADA SATU baris deklarasi bulanTerpilih di sini
+  // Kita arahkan ke 'filterBulanRekapan' karena 'selectBulanGrafik' tidak ada di HTML
+  let bulanTerpilih = document.getElementById('filterBulanRekapan').value; 
+  
   let currentYear = new Date().getFullYear(); 
   let formatBulan = `${currentYear}-${bulanTerpilih}`;
 
@@ -371,39 +374,52 @@ function updateChartPegawai() {
     }
   }
 
-  // Pembagi persentase murni dari total log yang terekam (termasuk Libur dll)
   let pembagi = totalTercatat;
 
-  const ctx = document.getElementById('chartPerPegawai').getContext('2d');
-  if(chartPersonal) chartPersonal.destroy();
+  const canvas = document.getElementById('chartPerPegawai');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  
+  if(window.chartPersonal) window.chartPersonal.destroy();
 
-  chartPersonal = new Chart(ctx, {
+  window.chartPersonal = new Chart(ctx, {
     type: 'pie',
     data: {
       labels: labels.length ? labels : ['Belum Ada Data'],
-      datasets: [{ data: dataCounts.length ? dataCounts : [1], backgroundColor: bgColors.length ? bgColors : ['#f8f9fa'], borderWidth: 1, hoverOffset: 15 }]
+      datasets: [{ 
+        data: dataCounts.length ? dataCounts : [1], 
+        backgroundColor: bgColors.length ? bgColors : ['#f8f9fa'], 
+        borderWidth: 1, 
+        hoverOffset: 15 
+      }]
     },
     options: {
-      responsive: true, maintainAspectRatio: false, 
+      responsive: true, 
+      maintainAspectRatio: false, 
       animation: { animateRotate: true, animateScale: true, duration: 1500, easing: 'easeOutBounce' },
       plugins: {
-        legend: { position: 'right', labels: { usePointStyle: true, padding: 15, font: { family: "'Plus Jakarta Sans', sans-serif", size: 11 } } },
+        legend: { 
+          position: 'right', 
+          labels: { usePointStyle: true, padding: 15, font: { family: "'Plus Jakarta Sans', sans-serif", size: 11 } } 
+        },
         datalabels: { 
           color: (context) => {
              let label = context.chart.data.labels[context.dataIndex];
-             // Jika Libur atau Belum ada data, warna teks gelap agar terbaca di background terang
              return label === 'Belum Ada Data' || label === 'Libur' ? '#475569' : '#ffffff';
           },
           font: { weight: 'bold', size: 12 },
           formatter: (value, context) => {
-            let label = context.chart.data.labels[context.dataIndex];
-            if (label === 'Belum Ada Data' || pembagi === 0) return '';
+            if (pembagi === 0) return '';
             let percentage = ((value / pembagi) * 100).toFixed(1);
             return percentage > 0 ? percentage + '%' : ''; 
           }
         },
         tooltip: { 
-          backgroundColor: 'rgba(255, 255, 255, 0.9)', titleColor: '#2c3e50', bodyColor: '#2c3e50', borderColor: '#e9ecef', borderWidth: 1, 
+          backgroundColor: 'rgba(255, 255, 255, 0.9)', 
+          titleColor: '#2c3e50', 
+          bodyColor: '#2c3e50', 
+          borderColor: '#e9ecef', 
+          borderWidth: 1, 
           callbacks: { 
             label: (c) => {
               if (pembagi === 0) return ' Belum Ada Data';
