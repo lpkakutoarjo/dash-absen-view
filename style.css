@@ -19,9 +19,35 @@
     -webkit-font-smoothing: antialiased;
   }
   
-  .bg-gradient-custom {
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
-  }
+.bg-gradient-custom {
+  background: #ffffff !important;
+  border-bottom: 2px solid #0d6efd; /* Garis bawah biru agar navbar tegas */
+}
+
+/* Border biru untuk button dan badge status */
+.btn-outline-blue {
+  border: 2px solid #0d6efd !important;
+  color: #0d6efd !important;
+  background: transparent;
+}
+
+.btn-outline-blue:hover {
+  background: #0d6efd;
+  color: #ffffff !important;
+}
+
+/* Border biru untuk status badge */
+.status-badge-blue {
+  border: 2px solid #0d6efd !important;
+  background: #f8f9fa !important; /* Warna abu sangat muda agar tetap bersih */
+  color: #0d6efd !important;
+}
+
+/* Warna teks jam disesuaikan karena background putih */
+.text-dark-custom {
+  color: #475569 !important;
+}
+
   
   .icon-circle {
     width: 38px;
